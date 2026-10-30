@@ -6328,6 +6328,10 @@ Views.quiz = {
           a.status === 'closed' ? el('span', { class: 'badge warn' }, 'Closed') : null,
           pw[a.id] ? apwSecret(a.id, pw[a.id].password) : el('span', { class: 'small', style: 'color:var(--bad);font-weight:600' }, '⚠ no password'),
           el('button', { class: 'btn btn-xs', 'data-a': 'pw', title: pw[a.id] ? 'Change the password' : 'Set a password', onclick: async () => { await AssessUI.editPw(a); this.render(); } }, '🔑'),
+          el('button', { class: 'btn btn-xs', 'data-a': 'tb-review', title: 'Review in class — the questions this quiz tested, full screen, hardest first', onclick: async (e) => {   // 🎞️ rs-review (2026-10-31)
+            const b = e.currentTarget; b.disabled = true;
+            try { await Views.teacher.loadResults(); const rows = ResultsUI.questionStats(ResultsUI.results().filter(r => !r.legacy && r.assessmentId === a.id));
+              if (rows.length) ResultsUI.reviewInClass(rows); else toast('No submitted answers for this quiz yet.', 'warn'); } finally { b.disabled = false; } } }, '🎞️'),
           el('button', { class: 'btn btn-xs', title: 'Results of this assessment', onclick: () => { Views.teacher.rf.asm = a.id; Views.teacher.tab = 'results'; Router.go('teacher', ['results']); } }, '📊'))));
     });
   },
