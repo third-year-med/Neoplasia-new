@@ -3015,7 +3015,9 @@ const ABANK = {
   }
 };
 /** What a picked topic quiz says about its questions. */
-function tqDescription(TQ, x) { return TQ.n + ' random questions from the ' + x.pool.length + (x.src === 'bank' ? ' 🔒 assessment-bank questions of this topic (never shown in Practice)' : ' practice questions of this topic') + ' · ' + TQ.min + ' minutes.'; }
+function tqDescription(TQ, x) { return TQ.n + ' random questions from the ' + x.pool.length + (x.src === 'bank' ? ' 🔒 assessment-bank questions of this topic (never shown in Practice)' : x.src === 'mix' ? ' questions of this topic (' + x.nb + ' 🔒 assessment-bank + ' + x.np + ' practice)' : ' practice questions of this topic') + ' · ' + TQ.min + ' minutes.'; }
+/** ⚡ Topic quizzes source (patch tq-mix): 'mix' (default) | 'bank' (bank first) | 'practice'. */
+function tqSource() { const v = Store.get('tq_source_v1', 'mix'); return v === 'bank' || v === 'practice' ? v : 'mix'; }
 function rebuildQuestions() {
   QUESTIONS = DATA.questions.concat(State.importedQuestions.map(q => Object.assign({}, q, { imported: true })));
   if (window.UE_Q) QUESTIONS = window.UE_Q(QUESTIONS); // teacher edits (universal editor)
@@ -14730,9 +14732,11 @@ const AssessUI = {
     const rev = new Set(State.revExcludeIds || []);
     return { TQ, topics: getTopics().map((t, i) => {
       const prac = QUESTIONS.filter(q => q.topic === t.id && q.type !== 'short' && !rev.has(q.id)).map(q => q.id);
-      const bank = ABANK.forTopic(t.id), pool = bank.length >= TQ.n ? bank : prac;   // 🔒 the assessment bank first (≥ 5 questions), else practice
+      const bank = ABANK.forTopic(t.id), how = tqSource();
+      // ⚡ tq-mix: mixed = bank + practice in one pool; bank first = the bank when it has ≥ 5, else practice; practice = practice only
+      const pool = how === 'practice' ? prac : how === 'bank' ? (bank.length >= TQ.n ? bank : prac) : Array.from(new Set(bank.concat(prac)));
       const ex = (State.assessments || []).find(a => a.autoTopic === t.id && a.status !== 'archived') || null;
-      return { t, num: i + 1, pool, ex, ok: pool.length >= TQ.n, src: pool === bank ? 'bank' : 'practice', change: !!ex && !(pool.length === (ex.questionIds || []).length && pool.every(id => (ex.questionIds || []).includes(id))) };
+      return { t, num: i + 1, pool, ex, ok: pool.length >= TQ.n, src: pool === bank ? 'bank' : pool === prac || !bank.length ? 'practice' : 'mix', nb: pool.filter(id => bank.includes(id)).length, np: pool.filter(id => prac.includes(id)).length, change: !!ex && !(pool.length === (ex.questionIds || []).length && pool.every(id => (ex.questionIds || []).includes(id))) };
     }) };
   },
   async topicQuizzesDialog() {
@@ -14743,11 +14747,17 @@ const AssessUI = {
     if (first) { const r = await Backend.authedPost({ action: 'aeCopyTargets', assessmentId: first.ex.id }, { timeout: 60000 }); if (r && r.ok) targets = r.targets; }
     const upd = el('input', { type: 'checkbox' });
     const cp = el('input', { type: 'checkbox', checked: true });
-    const rows = plan.topics.map(x => el('tr', null, el('td', null, String(x.num)), el('td', null, x.t.title), el('td', { class: 'nowrap' }, String(x.pool.length) + (x.src === 'bank' ? ' 🔒' : '')),
-      el('td', { class: 'small' }, !x.ok ? el('span', { style: 'color:var(--bad)' }, '⏭ skipped — fewer than ' + TQ.n + ' questions') : x.ex ? '• exists (“' + x.ex.title + '”)' + (x.change ? ' — Refresh gives it these ' + (x.src === 'bank' ? '🔒 bank' : '') + ' questions' : '') : el('b', { style: 'color:var(--ok)' }, '✓ new quiz'))));
+    const rows = plan.topics.map(x => el('tr', null, el('td', null, String(x.num)), el('td', null, x.t.title), el('td', { class: 'nowrap' }, String(x.pool.length) + (x.src === 'bank' ? ' 🔒' : x.src === 'mix' ? ' (' + x.nb + ' 🔒 + ' + x.np + ')' : '')),
+      el('td', { class: 'small' }, !x.ok ? el('span', { style: 'color:var(--bad)' }, '⏭ skipped — fewer than ' + TQ.n + ' questions') : x.ex ? '• exists (“' + x.ex.title + '”)' + (x.change ? ' — Refresh gives it these ' + (x.src === 'bank' ? '🔒 bank' : x.src === 'mix' ? 'mixed' : '') + ' questions' : '') : el('b', { style: 'color:var(--ok)' }, '✓ new quiz'))));
     const nNew = plan.topics.filter(x => x.ok && !x.ex).length, nEx = plan.topics.filter(x => x.ok && x.ex).length;
+    const how = tqSource();
+    const srcSel = el('select', { 'data-a': 'tq-source', onchange: (e) => { Store.set('tq_source_v1', e.target.value); const m = e.target.closest('.modal'); const x = m && m.querySelector('.modal-head .icon-btn'); if (x) x.click(); this.topicQuizzesDialog(); } },
+      [['mix', '🔒 Assessment bank + practice questions (mixed)'], ['bank', '🔒 Assessment bank first (only the bank when a topic has ≥ ' + TQ.n + ')'], ['practice', 'Practice questions only']].map(([v, l]) => el('option', { value: v, selected: v === how }, l)));
     const body = el('div', { class: 'tq' },
-      el('p', { style: 'margin-top:0' }, 'One quiz per topic, built from that topic’s 🔒 assessment-bank questions when it has at least ' + TQ.n + ' (never shown in Practice; ' + ABANK.items.length + ' in the bank), otherwise from its practice questions: each student gets ', el('b', null, TQ.n + ' random questions'), ' (in random order) — ', el('b', null, TQ.min + ' minutes'), ', ', el('b', null, '1 attempt'), ', score and correct answers shown after submitting, ', el('b', null, 'a random password'), ' for each quiz. Published and assigned to everyone; students start a quiz only with its password.'),
+      el('label', { class: 'f', style: 'display:block;margin:0 0 .6rem' }, el('b', null, 'Questions from: '), srcSel),
+      el('p', { style: 'margin-top:0' }, how === 'mix' ? 'One quiz per topic, built from ALL that topic’s questions — its 🔒 assessment-bank questions (never shown in Practice; ' + ABANK.items.length + ' in the bank) together with its practice questions: each student gets '
+        : how === 'practice' ? 'One quiz per topic, built from its practice questions: each student gets '
+        : 'One quiz per topic, built from that topic’s 🔒 assessment-bank questions when it has at least ' + TQ.n + ' (never shown in Practice; ' + ABANK.items.length + ' in the bank), otherwise from its practice questions: each student gets ', el('b', null, TQ.n + ' random questions'), ' (in random order) — ', el('b', null, TQ.min + ' minutes'), ', ', el('b', null, '1 attempt'), ', score and correct answers shown after submitting, ', el('b', null, 'a random password'), ' for each quiz. Published and assigned to everyone; students start a quiz only with its password.'),
       el('div', { class: 'table-scroll', style: 'max-height:18rem' }, el('table', { class: 'data-table' }, el('thead', null, el('tr', null, ['#', 'Topic', 'Questions', ''].map(h => el('th', null, h)))), el('tbody', null, rows))),
       el('div', { class: 'cg-opts' },
         el('label', { class: 'cg-opt' }, cp, ' Also copy them to all my other groups with this module', el('small', { class: 'muted' }, ' (each group: its own random passwords and results; a group where students already started a quiz keeps it)')),
