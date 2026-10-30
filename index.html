@@ -7666,13 +7666,13 @@ const PE_MOTIFS = {
 const PE_DIAGRAM_KINDS = { histo: 'Histological schematic', flow: 'Flowchart / process', concept: 'Key-features concept map' };
 const PE_DEFAULT_SETTINGS = {
   allowPrint: true, allowPdf: true, includeImages: true, includeDiagrams: true, includeQuestions: true, includeViva: true,
-  includeTeachingPoints: true, includeAnswers: false, showAnswersOnline: false, allowAnswerKey: false, answerSpace: false, fileName: ''
+  includeTeachingPoints: true, includeAnswers: true, showAnswersOnline: true, allowAnswerKey: true, answerSpace: false, fileName: ''   // all on (patch prac-defaults-on)
 };
 const PE_MANDATORY_CHOICES = { title: 'Title', number: 'Practical number', objectives: 'Learning objectives', specimen: 'Specimen / material', gross: 'Gross description', microscopic: 'Microscopic description', keyFeatures: 'Key microscopic features', diagnosis: 'Diagnosis', questions: 'Practical questions' };
 const PE_DEFAULT_CFG = {
   institution: '', department: 'Department of Pathology', courseName: '', academicYear: '',
   watermarkEnabled: false, watermarkText: '', footerEnabled: true, footerText: '',
-  allowSetDownload: false, allowSetPrint: false, showAIDisclosure: false,
+  allowSetDownload: true, allowSetPrint: true, showAIDisclosure: false,   // students may download / print the Complete Practical Set (patch prac-defaults-on)
   mandatory: ['title', 'number', 'microscopic', 'keyFeatures', 'diagnosis'],
   defaults: Object.assign({}, PE_DEFAULT_SETTINGS), aiModel: 'claude-sonnet-5'
 };
