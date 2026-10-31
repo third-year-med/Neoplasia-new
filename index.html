@@ -19490,10 +19490,10 @@ function pmPracSection(p, pt) {
 }
 const _pmCache = { base: null, sig: '', out: null };
 function pmSig(base) {
-  let m = ''; try { m = Object.keys(State.customMedia || {}).map(k => k + ':' + (State.customMedia[k] || []).length).join(','); } catch (e) { }
+  let m = ''; try { m = Object.keys(State.customMedia || {}).map(k => k + ':' + (State.customMedia[k] || []).map(x => x && (x.id || x.url)).join(';')).join(','); } catch (e) { }   // order too (patch present-order)
   const pp = (State.practicalPub || []).map(p => p.id + ':' + (p.images || []).length).join(',');
   const off = (State.deck && State.deck.pmOff || []).length + '/' + (State.deck && State.deck.pmOffItems || []).length;
-  return [base.length, (DATA.images || []).length, m, pp, off, getTopics().map(t => t.id + (t.sections || []).map(x => (x.figures || []).length + '.' + (x.links || []).length + '.' + (x.hideImages || []).join(',')).join(':')).join('')].join('|');
+  return [base.length, (DATA.images || []).length, m, pp, off, getTopics().map(t => t.id + (t.sections || []).map(x => (x.figures || []).length + '.' + (x.links || []).length + '.' + (x.hideImages || []).join(',') + '.' + (x.imageOrder || []).join(',')).join(':')).join('')].join('|');
 }
 /** Insert the Images slides that are missing (idempotent: slides already present — or deleted by the teacher — are left alone). */
 function pmAugment(base) {
@@ -19539,8 +19539,32 @@ function pmAugment(base) {
     if (i < 0) i = lastIndexOf(x => x.topicId === pt.id && !/^(mk_|q_)/.test(x.id));
     if (i >= 0) after(i, g);
   });
+  pmFollowOrder(out);   // the pictures in the Learn order (patch present-order)
   _pmCache.base = base; _pmCache.sig = sig; _pmCache.out = out;
   return out;
+}
+/** ⇅ Arrange pictures → slides (patch present-order): on each section's Images slides, the library pictures and the teacher's
+ *  pictures are put in the order Learn shows them, each kind in its own places (the layout of the slides is kept). The
+ *  changed slides are copies — the saved deck itself is not rewritten. */
+function pmFollowOrder(out) {
+  getTopics().forEach(t => (t.sections || []).forEach(s => {
+    const idx = []; out.forEach((x, i) => { if (x && x.type === 'gallery' && x.sectionId === s.id && !x.pracId) idx.push(i); });
+    if (!idx.length) return;
+    const want = pmSectionRefs(s).imgs.map(pmRefKey);
+    const copied = new Set();
+    ['atlas', 'media'].forEach(kind => {
+      const pos = [];
+      idx.forEach(i => (out[i].items || []).forEach((r, j) => { if (r && r.t === kind && want.indexOf(pmRefKey(r)) >= 0) pos.push([i, j]); }));
+      if (pos.length < 2) return;
+      const refs = pos.map(([i, j]) => out[i].items[j]);
+      const sorted = refs.slice().sort((a, b) => want.indexOf(pmRefKey(a)) - want.indexOf(pmRefKey(b)));
+      if (sorted.every((r, k) => r === refs[k])) return;
+      pos.forEach(([i, j], k) => {
+        if (!copied.has(i)) { out[i] = Object.assign({}, out[i], { items: out[i].items.slice() }); copied.add(i); }
+        out[i].items[j] = sorted[k];
+      });
+    });
+  }));
 }
 /** Called by mutate(): Images slides the teacher removed stay removed. */
 function pmTrackRemoved(beforeIds) {
