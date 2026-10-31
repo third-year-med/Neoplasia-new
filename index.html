@@ -6886,6 +6886,7 @@ Views.present = {
     bar.appendChild(el('button', { class: 'btn btn-sm' + (this.showNotes ? ' btn-primary' : ''), onclick: () => { this.showNotes = !this.showNotes; this.renderNotes(); this.renderToolbar(); this.fit(); } }, '🗒 Notes'));
     bar.appendChild(el('button', { class: 'btn btn-sm', onclick: () => this.toggleFullscreen() }, fsOn ? '⤫ Exit fullscreen' : '⛶ Fullscreen'));
     bar.appendChild(el('button', { class: 'btn btn-sm', 'data-a': 'print-slides', title: 'Print the slides or save them as a PDF', onclick: () => this.printDialog() }, '🖨 Print / PDF'));
+    bar.appendChild(el('button', { class: 'btn btn-sm', 'data-a': 'pres-learn', title: 'Open this slide’s topic in Learn', onclick: () => this.openInLearn() }, '📖 Learn'));   // patch present-learn
     if (s && s.type === 'question') {
       bar.appendChild(el('button', { class: 'btn btn-sm btn-primary', onclick: () => this.toggleReveal() }, this.revealed[s.id] ? '🙈 Hide answer' : '👁 Reveal answer'));
       bar.appendChild(el('button', { class: 'btn btn-sm', onclick: () => { delete this.polls[s.id]; Store.set('poll_v1', this.polls); this.renderSlide(); }, title: 'Reset the show-of-hands tally' }, '↺ Tally'));
@@ -6923,6 +6924,18 @@ Views.present = {
     document.body.classList.toggle('pres-fs-on', on);
     this.renderToolbar();
     setTimeout(() => this.fit(), 60);
+  },
+  /** 📖 Learn (patch present-learn): Learn at the current slide's section, else its topic (from this or an earlier slide). */
+  openInLearn() {
+    if (this.els.wrap.classList.contains('pres-fullscreen')) { this.setFullscreen(false); try { if (document.fullscreenElement) { this._fsNative = false; document.exitFullscreen().catch(() => { }); } } catch (e) { /* ignore */ } }
+    if (this.overview) this.toggleOverview();
+    const list = this.list(); let sec = null, top = null;
+    for (let i = this.idx; i >= 0 && !sec && !top; i--) {
+      const x = list[i]; if (!x) continue;
+      const f = x.sectionId ? findSection(x.sectionId) : null;
+      if (f) sec = f; else if (x.topicId && getTopic(x.topicId)) top = x.topicId;
+    }
+    if (sec) Router.go('explain', [sec.topic.id, sec.section.id]); else if (top) Router.go('explain', [top]); else Router.go('explain');
   },
   toggleFullscreen() {
     const on = !this.els.wrap.classList.contains('pres-fullscreen');
