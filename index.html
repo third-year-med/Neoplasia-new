@@ -18213,7 +18213,7 @@ window.uxValidatePathway = uxValidatePathway;
 function uxExplainSig(E) {
   const tid = E.topicId, t = tid && tid !== 'overview' ? getTopic(tid) : null;
   const parts = [tid, E.editMode ? 1 : 0, Auth.isTeacher() ? 1 : 0];
-  if (t) { parts.push(JSON.stringify(t)); (t.sections || []).forEach(s => parts.push(JSON.stringify(sectionMedia(s.id)))); }
+  if (t) { parts.push(JSON.stringify(t)); (t.sections || []).forEach(s => parts.push(JSON.stringify(sectionMedia(s.id)))); parts.push('ue' + (window.__ueVer || 0)); }   // a universal-editor edit (e.g. a replaced library picture) redraws Learn (patch atlas-replace)
   else parts.push(getTopics().map(x => x.id + ':' + x.title + ':' + (x.summary || '') + ':' + (x.sections || []).length).join('|'), QUESTIONS.length, CASES.length);
   return parts.join('§');
 }
@@ -18236,7 +18236,7 @@ function uxRestoreAnchor(a, fallbackY) {
   const E = Views.explain; if (!E) return;
   const side0 = E.renderSide, main1 = E.renderMain, refresh0 = E.refresh, show0 = E.show, focus0 = E.focusSection;
   E.renderSide = function () { const r = side0.apply(this, arguments); this._uxSideSig = uxSideSig(this); return r; };
-  const secSigs = (E2) => { const t = getTopic(E2.topicId); const o = {}; if (t) (t.sections || []).forEach(sc => { o[sc.id] = JSON.stringify(sc) + JSON.stringify(sectionMedia(sc.id)); }); return o; };
+  const secSigs = (E2) => { const t = getTopic(E2.topicId); const o = {}; if (t) (t.sections || []).forEach(sc => { o[sc.id] = JSON.stringify(sc) + JSON.stringify(sectionMedia(sc.id)) + 'ue' + (window.__ueVer || 0); }); return o; };
   const frame = (E2) => { const t = getTopic(E2.topicId); return t ? JSON.stringify(Object.assign({}, t, { sections: (t.sections || []).map(sc => sc.id) })) + (E2.editMode ? 1 : 0) + (Auth.isTeacher() ? 1 : 0) : ''; };
   E.renderMain = function () { const r = main1.apply(this, arguments); this._uxMainSig = uxExplainSig(this); this._uxSecSigs = secSigs(this); this._uxFrame = frame(this); return r; };
   /** Targeted update: when only the content of some sections changed, replace just those cards (open state kept). */
@@ -19821,6 +19821,14 @@ function emDecorateBody(body, t, s) {
         await emMutateSection(t, s, y => { y.hideImages = [...new Set((y.hideImages || []).concat(x.id))]; }, 'remove picture');
         toast('Picture removed from this Learning Block (still in the image library).', 'ok');
       });
+    });
+  }
+  // 2b · ⇄ Replace on the library pictures (patch atlas-replace): opens the universal editor's Pictures tab for that record
+  if (typeof ATLAS !== 'undefined' && typeof UE !== 'undefined' && UE.open) {
+    const imgs2 = ATLAS.forSection(s.id);
+    body.querySelectorAll('.atl-block .atl-fig').forEach((node, k) => {
+      const x = imgs2[k], tools = x && node.querySelector(':scope > .em-tools'); if (!tools || tools.querySelector('.em-rep')) return;
+      tools.insertBefore(emBtn('⇄ Replace', 'em-edit em-rep', 'Replace this library picture (everywhere in this module; ↺ Reset to original brings it back)', () => UE.open('atlas', x.id, x._ueOrig || x, 'image')), tools.lastChild);
     });
   }
   // 3 · image links (WebPath, WebPathology, Pathology Outlines) — matched by address
