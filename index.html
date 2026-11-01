@@ -18078,7 +18078,7 @@ Views.apply = {
 /* ==========================================================================
    🎬 Video Lectures (patch video-library) — one platform-wide library, its own main tab (#/videos)
    ========================================================================== */
-const VL_MODULES = [['intropath', 'Introduction to Pathology'], ['cellcondensed', 'Cell Injury & Cell Death'], ['inflnew', 'Inflammation'], ['neonew', 'Neoplasia'], ['general', 'General / integrated pathology']];
+const VL_MODULES = [['intropath', 'Introduction to Pathology'], ['cellcondensed', 'Cell Injury & Cell Death'], ['inflnew', 'Inflammation'], ['neonew', 'Neoplasia']];   // each module shows its own videos (patch video-own-module)
 function vlModName(k) { const m = VL_MODULES.find(x => x[0] === k); return m ? m[1] : k; }
 function vlHere() { return String(COURSE.moduleKey || MODULE_KEY || '').split('-')[0]; }
 /** What a video link is: Google Drive, YouTube, Vimeo, a video file, an embed link or another web page. */
@@ -18155,20 +18155,21 @@ Views.videos = {
     if (this.loading && !this.items) { page.appendChild(el('p', { class: 'muted' }, 'Loading the video library…')); return; }
     if (this.err) { page.appendChild(el('div', { class: 'msg warn' }, this.err, ' ', el('button', { class: 'btn btn-sm', onclick: () => this.load() }, '↻ Try again'))); return; }
     const all = this.items || [], ed = this.editable(), f = this.f;
-    if (f.mod === null) f.mod = all.some(x => (x.modules || []).includes(vlHere())) ? vlHere() : '';
+    if (f.mod === null || (!ed && f.mod !== vlHere())) f.mod = vlHere();   // this module's videos (patch video-own-module); teachers may look at all
     const mods = VL_MODULES.map(m => m[0]).concat([...new Set(all.flatMap(x => x.modules || []))].filter(k => !VL_MODULES.some(m => m[0] === k)));
     const chapters = [...new Set(all.filter(x => !f.mod || (x.modules || []).includes(f.mod)).map(x => x.chapter).filter(Boolean))].sort();
     if (f.ch && !chapters.includes(f.ch)) f.ch = '';
     const search = el('input', { type: 'search', placeholder: 'Search lectures…', 'aria-label': 'Search lectures', value: f.q });
     search.addEventListener('input', debounce(() => { f.q = search.value; this.paintGrid(grid, count); }, 200));
-    const modSel = el('select', { 'aria-label': 'Module', onchange: e => { f.mod = e.target.value; f.ch = ''; this.render(); } },
-      el('option', { value: '', selected: !f.mod }, 'All modules'), mods.map(k => el('option', { value: k, selected: f.mod === k }, vlModName(k))));
+    void mods;
+    const modSel = !ed ? null : el('select', { 'aria-label': 'Which videos', onchange: e => { f.mod = e.target.value; f.ch = ''; this.render(); } },
+      el('option', { value: vlHere(), selected: f.mod === vlHere() }, 'This module: ' + vlModName(vlHere())), el('option', { value: '', selected: !f.mod }, 'All modules (teachers only)'));
     const chSel = el('select', { 'aria-label': 'Chapter or subject', onchange: e => { f.ch = e.target.value; this.paintGrid(grid, count); } },
       el('option', { value: '' }, 'All chapters / subjects'), chapters.map(c => el('option', { value: c, selected: f.ch === c }, c)));
     const count = el('span', { class: 'small muted' });
     page.appendChild(el('div', { class: 'vl-tools' }, search, modSel, chSel, count,
       ed ? el('button', { class: 'btn btn-primary btn-sm', 'data-a': 'vl-add', onclick: () => this.form(null) }, '+ Add video') : null));
-    if (ed) page.appendChild(el('p', { class: 'small muted', style: 'margin:-.3rem 0 .6rem' }, '🧑‍🏫 One library for all modules and groups. New videos are drafts (only teachers see them, marked DRAFT) until you publish them. Drag ⠿ to change the order (with no search or filter), or set the position in ✎ Edit.'));
+    if (ed) page.appendChild(el('p', { class: 'small muted', style: 'margin:-.3rem 0 .6rem' }, '🧑‍🏫 One library for all modules and groups. New videos are drafts (only teachers see them, marked DRAFT) until you publish them. Drag ⠿ to change the order of this module’s videos (with no search or chapter filter), or set the position in ✎ Edit.'));
     const grid = el('div', { class: 'vl-grid' }); page.appendChild(grid);
     this.paintGrid(grid, count);
   },
@@ -18176,8 +18177,9 @@ Views.videos = {
     clear(grid); const list = this.list(), ed = this.editable(), f = this.f;
     count.textContent = plural(list.length, 'video');
     if (!list.length) { grid.appendChild(el('p', { class: 'muted' }, (this.items || []).length ? 'No video matches this search or filter.' : ed ? 'No videos yet — click “+ Add video”.' : 'No video lectures yet.')); return; }
-    list.forEach(v => grid.appendChild(this.card(v, ed && !f.q && !f.mod && !f.ch)));
-    if (ed && !f.q && !f.mod && !f.ch && list.length > 1 && typeof picSortable === 'function') picSortable(grid, ids => this.saveOrder(ids));
+    const drag = ed && !f.q && !f.ch && f.mod === vlHere();   // order inside this module (patch video-own-module)
+    list.forEach(v => grid.appendChild(this.card(v, drag)));
+    if (drag && list.length > 1 && typeof picSortable === 'function') picSortable(grid, ids => this.saveOrder(ids));
   },
   card(v, drag) {
     const p = vlParse(v.url) || {}, thumbUrl = v.thumb || p.thumb, ed = this.editable();
@@ -18199,7 +18201,10 @@ Views.videos = {
           ed ? el('button', { class: 'btn btn-sm btn-danger', 'data-a': 'vl-remove', title: 'Remove from the library', onclick: () => this.remove(v) }, '🗑') : null)));
   },
   async saveOrder(ids) {
-    const by = new Map((this.items || []).map(v => [v.id, v])); this.items = ids.map(id => by.get(id)).filter(Boolean).concat((this.items || []).filter(v => !ids.includes(v.id)));
+    // the moved videos take the places they had among all videos (the other modules' videos keep theirs)
+    const all = (this.items || []).slice(), by = new Map(all.map(v => [v.id, v])), slots = [];
+    all.forEach((v, i) => { if (ids.includes(v.id)) slots.push(i); });
+    ids.forEach((id, k) => { if (k < slots.length && by.get(id)) all[slots[k]] = by.get(id); }); this.items = all;
     this.render();
     const r = await Backend.authedPost({ action: 'videoOrder', ids: this.items.map(v => v.id) }, { timeout: 30000 });
     if (r && r.ok) toast('Order saved.', 'ok'); else { toast('The order could not be saved: ' + ((r && r.error) || 'network'), 'bad', 6000); this.load(); }
@@ -18221,7 +18226,7 @@ Views.videos = {
     const modBox = el('div', { class: 'vl-mods' }, mods.map(k => el('label', null, el('input', { type: 'checkbox', value: k, checked: (d.modules || []).includes(k) }), ' ' + vlModName(k))));
     const dl = el('input', { type: 'checkbox', checked: !!d.download });
     const status = el('select', null, el('option', { value: 'draft', selected: d.status !== 'published' }, 'Draft — only teachers see it'), el('option', { value: 'published', selected: d.status === 'published' }, 'Published — students see it'));
-    const others = all.filter(x => !v || x.id !== v.id), cur = v ? all.findIndex(x => x.id === v.id) : others.length;
+    const mineAll = all.filter(x => (x.modules || []).includes(vlHere())), others = mineAll.filter(x => !v || x.id !== v.id), cur0 = v ? mineAll.findIndex(x => x.id === v.id) : -1, cur = cur0 >= 0 ? cur0 : others.length;   // position among this module's videos (patch video-own-module)
     const pos = el('select', null, Array.from({ length: others.length + 1 }, (_, i) => el('option', { value: i, selected: i === cur }, 'Position ' + (i + 1) + (i === others.length ? ' (last)' : ''))));
     const kind = el('div', { class: 'small muted' }), prev = el('div', { class: 'vl-prev' }), msg = el('div', { class: 'small' });
     const showKind = () => { const p = vlParse(url.value); kind.textContent = !url.value.trim() ? '' : !p ? '⚠ Paste a link that starts with https://' : p.kind === 'link' ? '↗ ' + p.host + ': students open it in a new tab (this site cannot be shown inside the platform).' : '✓ ' + p.host + (p.kind === 'drive' ? ' — share the file “Anyone with the link · Viewer”.' : '') + (p.download ? '' : ' · download is not offered for this kind of link.'); };
@@ -18250,9 +18255,11 @@ Views.videos = {
       msg.className = 'small'; msg.textContent = 'Saving…';
       const r = await Backend.authedPost({ action: 'videoSave', video }, { timeout: 30000 });
       if (!(r && r.ok)) { msg.className = 'msg bad'; msg.textContent = (r && r.error) || 'Could not save.'; return false; }
-      const rest = (this.items || []).filter(x => x.id !== r.video.id); rest.splice(Math.min(+pos.value, rest.length), 0, r.video); this.items = rest;
+      const before = (this.items || []).map(x => x.id).join(), rest = (this.items || []).filter(x => x.id !== r.video.id), mine = rest.filter(x => (x.modules || []).includes(vlHere()));
+      const at = mine[+pos.value] ? rest.indexOf(mine[+pos.value]) : mine.length ? rest.indexOf(mine[mine.length - 1]) + 1 : rest.length;   // before this module's video at that position
+      rest.splice(at, 0, r.video); this.items = rest;
       close(true); this.render(); toast(isNew ? 'Video added' + (r.video.status === 'published' ? ' and published.' : ' as a draft.') : 'Saved.', 'ok');
-      if (rest.findIndex(x => x.id === r.video.id) !== (v ? cur : -1)) {
+      if (isNew || rest.map(x => x.id).join() !== before) {
         const o = await Backend.authedPost({ action: 'videoOrder', ids: rest.map(x => x.id) }, { timeout: 30000 }); if (!(o && o.ok)) toast('The position could not be saved.', 'warn');
       }
     } }] });
