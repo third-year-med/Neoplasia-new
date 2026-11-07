@@ -14294,7 +14294,7 @@ const ResultsUI = {
     return { ok: true };
   }
 };
-/* ---------- ✍ Marking corrections: ↻ Re-mark and ✎ adjust a mark (patch ae-marking; Portal.gs 2.40) ---------- */
+/* ---------- ✍ Marking corrections: ↻ Re-mark and ✎ adjust a mark (patch ae-marking; Portal.gs 2.41) ---------- */
 Object.assign(ResultsUI, {
   remarkBtn(inf) {
     if (!inf || !inf.a || this.sel === RS_ALL || this.sel === RS_LEGACY || !Backend.isConfigured()) return null;
@@ -14305,7 +14305,7 @@ Object.assign(ResultsUI, {
     const t = toast('Re-marking…', 'info', 60000);
     const r = await Backend.authedPost({ action: 'aeRemark', assessmentId: inf.a.id }, { timeout: 90000 });
     if (t && t.remove) t.remove();
-    if (!(r && r.ok)) { toast(/unknown action/i.test((r && r.error) || '') ? 'The class server needs updating (Portal.gs 2.40).' : ((r && r.error) || 'Re-marking failed.'), 'bad', 7000); return; }
+    if (!(r && r.ok)) { toast(/unknown action/i.test((r && r.error) || '') ? 'The class server needs updating (Portal.gs 2.41).' : ((r && r.error) || 'Re-marking failed.'), 'bad', 7000); return; }
     await this.T().loadResults(true); this.render(this.box);
     const ch = r.changed || [];
     openModal({ title: '↻ Re-mark — ' + inf.title, body: el('div', { class: 'stack' },
@@ -14330,7 +14330,7 @@ Object.assign(ResultsUI, {
       actions: [{ label: 'Cancel' }, { label: 'Save mark', primary: true, keepOpen: true, onClick: async (close) => {
         msg.className = 'small'; msg.textContent = 'Saving…';
         const x = await Backend.authedPost({ action: 'aeAdjustMark', attemptId: r.id, qid: a.qid, mark: pick === 'auto' ? null : Number(pick), note: note.value.trim() }, { timeout: 60000 });
-        if (!(x && x.ok)) { msg.className = 'msg bad'; msg.textContent = /unknown action/i.test((x && x.error) || '') ? 'The class server needs updating (Portal.gs 2.40).' : ((x && x.error) || 'Could not save.'); return false; }
+        if (!(x && x.ok)) { msg.className = 'msg bad'; msg.textContent = /unknown action/i.test((x && x.error) || '') ? 'The class server needs updating (Portal.gs 2.41).' : ((x && x.error) || 'Could not save.'); return false; }
         close(true); document.querySelectorAll('.modal-back').forEach(m => m.remove());
         await this.T().loadResults(true); this.render(this.box);
         toast('Mark saved — score ' + x.before + ' → ' + x.score + ' / ' + x.total + '.', 'ok', 5000);
