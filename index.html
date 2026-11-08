@@ -12931,7 +12931,7 @@ function stuGroupNote(r) {
     + (a ? ' ' + a + ' already on the group list (unchanged).' : '');
 }
 const StudentAdmin = {
-  list: null, loading: false, q: '', lastIssued: [],
+  list: null, loading: false, q: '', lastIssued: [], sel: new Set(),   // sel: students ticked for removal (patch students-bulk-remove)
   async load(force) {
     if (this.loading) return; if (this.list && !force) return;
     this.loading = true;
@@ -13008,11 +13008,13 @@ const StudentAdmin = {
     const tb = el('tbody');
     const paint = () => {
       clear(tb); const s = q.value.trim().toLowerCase(); this.q = q.value;
-      const rows = L.filter(x => !s || (x.username + ' ' + x.name + ' ' + x.email).toLowerCase().includes(s));
-      if (!rows.length) tb.appendChild(el('tr', null, el('td', { colspan: '6', class: 'center muted' }, L.length ? 'No match.' : 'No students yet — add them above.')));
+      const rows = L.filter(x => !s || (x.username + ' ' + x.name + ' ' + x.email).toLowerCase().includes(s)); this._shown = rows;
+      if (!rows.length) tb.appendChild(el('tr', null, el('td', { colspan: '7', class: 'center muted' }, L.length ? 'No match.' : 'No students yet — add them above.')));
       rows.forEach(x => {
         const st = !x.active ? el('span', { class: 'badge bad' }, 'Inactive') : x.locked ? el('span', { class: 'badge warn' }, 'Locked') : el('span', { class: 'badge ok' }, 'Active');
-        tb.appendChild(el('tr', null, el('td', { class: 'nowrap' }, el('b', null, x.username)), el('td', null, x.name), el('td', null, x.email || '—'),
+        const ck = el('input', { type: 'checkbox', checked: this.sel.has(x.username), 'aria-label': 'Select ' + x.username, 'data-a': 'stu-ck' });
+        ck.addEventListener('change', () => { if (ck.checked) this.sel.add(x.username); else this.sel.delete(x.username); if (this.updBar) this.updBar(); });
+        tb.appendChild(el('tr', null, el('td', null, ck), el('td', { class: 'nowrap' }, el('b', null, x.username)), el('td', null, x.name), el('td', null, x.email || '—'),
           el('td', null, st, x.mustChange ? el('div', { class: 'small muted' }, 'must set own password') : null),
           el('td', { class: 'nowrap small' }, x.lastLogin ? fmtDate(x.lastLogin) : 'never'),
           el('td', null, el('div', { class: 'row', style: 'gap:.25rem;flex-wrap:wrap' },
@@ -13028,9 +13030,22 @@ const StudentAdmin = {
     card.appendChild(el('div', { class: 'row between' }, el('h3', { style: 'margin:0' }, '👥 Students (' + L.length + ' · ' + act + ' active)'),
       el('span', { class: 'row', style: 'gap:.4rem' }, q, el('button', { class: 'btn btn-sm', onclick: () => this.load(true) }, '↻'),
         el('button', { class: 'btn btn-sm', disabled: !L.length, onclick: () => downloadText(MODULE_KEY + '-students.csv', toCSV([['Student ID', 'Name', 'Email', 'Active', 'Last sign-in']].concat(L.map(x => [x.username, x.name, x.email, x.active ? 'yes' : 'no', x.lastLogin ? fmtDate(x.lastLogin) : '']))), 'text/csv;charset=utf-8') }, '⤓ CSV'))));
+    // ☑ select + 🗑 Remove selected / Remove all (patch students-bulk-remove)
+    const all = el('input', { type: 'checkbox', 'aria-label': 'Select all shown students', 'data-a': 'stu-all' });
+    all.addEventListener('change', () => { (this._shown || []).forEach(x => { if (all.checked) this.sel.add(x.username); else this.sel.delete(x.username); }); paint(); this.updBar(); });
+    const cnt = el('span', { class: 'small muted' });
+    const rmSel = el('button', { class: 'btn btn-sm btn-danger', 'data-a': 'stu-rm-sel', onclick: () => this.removeMany(L.filter(x => this.sel.has(x.username)), false) }, '🗑 Remove selected');
+    const rmAll = el('button', { class: 'btn btn-sm btn-danger', 'data-a': 'stu-rm-all', disabled: !L.length, onclick: () => this.removeMany(L.slice(), true) }, 'Remove all students');
+    this.updBar = () => {
+      const n = L.filter(x => this.sel.has(x.username)).length, sh = this._shown || [];
+      cnt.textContent = n ? n + ' selected' : ''; rmSel.textContent = '🗑 Remove selected (' + n + ')'; rmSel.disabled = !n;
+      all.checked = !!sh.length && sh.every(x => this.sel.has(x.username)); all.indeterminate = !all.checked && sh.some(x => this.sel.has(x.username));
+    };
+    card.appendChild(el('div', { class: 'row', style: 'gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.6rem' }, rmSel, rmAll, cnt,
+      el('span', { class: 'small muted' }, 'Tick students, or use the box in the table heading to tick all shown. Their results and attendance are kept.')));
     card.appendChild(el('div', { class: 'table-scroll mt1' }, el('table', { class: 'data-table' },
-      el('thead', null, el('tr', null, ['Student ID', 'Name', 'Email', 'Status', 'Last sign-in', 'Actions'].map(h => el('th', null, h)))), tb)));
-    paint();
+      el('thead', null, el('tr', null, [el('th', null, all)].concat(['Student ID', 'Name', 'Email', 'Status', 'Last sign-in', 'Actions'].map(h => el('th', null, h))))), tb)));
+    paint(); this.updBar();
   },
   async act(action, x, okMsg, extra) {
     const r = await Backend.authedPost(Object.assign({ action, username: x.username }, extra || {}));
@@ -13048,6 +13063,27 @@ const StudentAdmin = {
     if (v && v.length < 4) { toast('At least 4 characters.', 'bad'); return; }
     const r = await this.act('resetStudentPassword', x, 'Password reset.', { password: v || '' });
     if (r && r.tempPassword) this.issued([{ username: x.username, tempPassword: r.tempPassword }]);
+  },
+  /** Removes the given accounts one by one (deleteStudent), with progress; Stop ends it after the current student. */
+  async removeMany(list, everyone) {
+    if (!list.length) return;
+    if (everyone) {
+      const w = await promptDialog('Remove ALL ' + list.length + ' students?', 'This removes every account listed here — ' + (GROUP_TAG ? 'group ' + GROUP_TAG + ' — ' : '') + 'they lose access at once; their past results and attendance records are kept. Type DELETE to confirm.', { placeholder: 'DELETE', okLabel: 'Remove all' });
+      if (w === null) return; if (String(w).trim() !== 'DELETE') { toast('Nothing was removed — the word DELETE was not typed.', 'warn', 5000); return; }
+    } else if (!(await confirmDialog('Remove the accounts of ' + plural(list.length, 'selected student') + '? They lose access immediately. Their past results and attendance records are kept.', { title: 'Remove students?', danger: true, okLabel: 'Remove ' + list.length }))) return;
+    let stop = false, done = 0; const failed = [];
+    const line = el('div', { class: 'msg info', role: 'status' }, 'Removing 0 of ' + list.length + '…');
+    const m = openModal({ title: '🗑 Removing students', body: line, dismissable: false, actions: [{ label: 'Stop', keepOpen: true, onClick: () => { stop = true; line.textContent = 'Stopping after the current student…'; return false; } }] });
+    for (let i = 0; i < list.length && !stop; i++) {
+      const x = list[i]; line.textContent = 'Removing ' + (i + 1) + ' of ' + list.length + ' — ' + x.username + '…';
+      const r = await Backend.authedPost({ action: 'deleteStudent', username: x.username }, { timeout: 60000 });
+      if (r && r.ok) { done++; this.sel.delete(x.username); } else failed.push(x.username + (r && r.error ? ' (' + r.error + ')' : ''));
+      if (failed.length >= 5 && done === 0) { stop = true; break; }   // nothing works (signed out, no network): stop early
+    }
+    m.close();
+    await this.load(true);
+    toast(plural(done, 'student') + ' removed' + (failed.length ? ', ' + failed.length + ' failed' : '') + (stop && done + failed.length < list.length ? ' — stopped, ' + (list.length - done - failed.length) + ' left' : '') + '.', failed.length ? 'warn' : 'ok', 8000);
+    if (failed.length) openModal({ title: 'Not removed', body: el('div', null, el('p', null, 'These could not be removed (try again, or remove them one by one):'), el('p', { class: 'small' }, failed.join(', '))), actions: [{ label: 'Close', primary: true }] });
   },
   async remove(x) {
     if (!(await confirmDialog('Remove the account of ' + x.name + ' (' + x.username + ')? They lose access immediately. Their past results and attendance records are kept.', { title: 'Remove student?', danger: true, okLabel: 'Remove' }))) return;
