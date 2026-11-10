@@ -5673,7 +5673,9 @@ function buildQuestionCard(q, opts) {
   if (q.case) card.appendChild(el('div', { class: 'q-case' }, el('b', null, '🩺 Case: '), q.case));
   if (q.images && q.images.length) card.appendChild(el('div', { class: 'q-img-row' }, buildSlideImages(q.images, false)));
   { const ux = UE.extra(q, { noNotes: quizMode }); if (ux) card.appendChild(ux); }
-  if (q.links && q.links.length) card.appendChild(el('div', { class: 'q-links' }, q.links.map(l => el('a', { href: l.url, target: '_blank', rel: 'noopener noreferrer' }, (l.kind === 'gross' ? '🫀 ' : '🔬 ') + 'Open image: ' + l.title + ' (' + (l.source || 'WebPath') + ') ↗'))));
+  // picture links; an assessment copy made before they were kept takes them from the module's question if unchanged (patch quiz-image-links)
+  const qLinks = q.links || (q.links === undefined && typeof Q_BY_ID !== 'undefined' && Q_BY_ID[q.id] && Q_BY_ID[q.id].stem === q.stem ? Q_BY_ID[q.id].links : null);
+  if (qLinks && qLinks.length) card.appendChild(el('div', { class: 'q-links' }, qLinks.map((l, i) => el('a', { href: l.url, target: '_blank', rel: 'noopener noreferrer' }, (l.kind === 'gross' ? '🫀 ' : '🔬 ') + (quizMode ? 'Open image' + (qLinks.length > 1 ? ' ' + (i + 1) : '') + (l.kind === 'gross' ? ' (gross)' : '') + ' — ' + (l.source || 'WebPath') : 'Open image: ' + l.title + ' (' + (l.source || 'WebPath') + ')') + ' ↗'))));
   const area = el('div');
   let getResponse, setResponse, paintResult;
   const changed = () => { if (o.onChange) o.onChange(getResponse()); };
@@ -6006,7 +6008,7 @@ function formalIneligibleReason(q) {
   if (q.imported && !(State.quizExtraIds || []).includes(q.id)) return 'Not marked “Formal Assessment eligible” in the Question Bank.';
   return '';
 }
-const SNAPSHOT_FIELDS = ['id', 'type', 'stem', 'case', 'options', 'answer', 'answers', 'pairs', 'model', 'keywords', 'topic', 'difficulty', 'explanation', 'ref', 'images', 'imported', 'importBatch', 'sourceRef'];
+const SNAPSHOT_FIELDS = ['id', 'type', 'stem', 'case', 'options', 'answer', 'answers', 'pairs', 'model', 'keywords', 'topic', 'difficulty', 'explanation', 'ref', 'images', 'imported', 'importBatch', 'sourceRef', 'links'];   // links: picture links (patch quiz-image-links)
 /** A frozen copy of a canonical question, stamped with its version — what an assessment version holds. */
 function snapshotQuestion(q) {
   const s = {};
