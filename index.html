@@ -15432,6 +15432,22 @@ function tqCloseHours() { const c = Store.get('tq_count_v1', null) || {}; const 
     if (r && r.ok) toast('Reopened for ' + id.trim() + ' for ' + (Number(hrs) || 2) + ' h — they can start it with the quiz password.', 'ok', 6000); else toast((r && r.error) || 'Could not reopen it.', 'bad', 6000);
   };
 })();
+/* ---------- 🏅 topic list for the Annual Assessment presentations (patch ann-topics-report; Portal.gs 2.44) ---------- */
+(function () {
+  let tries = 0;
+  const go = async () => {
+    try {
+      if (!(window.NEO_BOOT && NEO_BOOT.role === 'teacher' && typeof getTopics === 'function' && typeof Backend !== 'undefined' && Backend.isConfigured())) { if (++tries < 60) setTimeout(go, 3000); return; }
+      const topics = getTopics().map((t, i) => ({ n: i + 1, topic: String(t.title || '').trim() })).filter(t => t.topic);
+      if (!topics.length) { if (++tries < 60) setTimeout(go, 3000); return; }
+      const key = 'ann_topics_sent_v1:' + ((window.NEO_CONFIG && NEO_CONFIG.storagePrefix) || '') + location.search, sig = JSON.stringify(topics);
+      if (sessionStorage.getItem(key) === sig) return;
+      const r = await Backend.authedPost({ action: 'annTopicsReport', topics }, { timeout: 30000 });
+      if (r && r.ok) sessionStorage.setItem(key, sig);
+    } catch (e) { console.warn('topic list for the annual assessment', e); }
+  };
+  setTimeout(go, 4000);
+})();
 function openInQuestionBank(qid) {
   const T = Views.teacher; T.bankState = T.bankState || bankFilterDefaults(); Object.assign(T.bankState, bankFilterDefaults({ q: qid, sel: T.bankState.sel }));
   if (AssessUI.builder && AssessUI.dirtyBuilder) toast('Your unsaved assessment changes are kept — reopen it from the library to continue.', 'warn', 5000);
