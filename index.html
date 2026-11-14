@@ -6840,6 +6840,21 @@ function resolveImgUrl(u) {
   if (typeof u === 'string' && u.startsWith('fig:')) { const f = FIGURES[u.slice(4)]; return f ? svgDataUri(f.svg) : ''; }
   return u;
 }
+/* ---------- 🖼 Picture references in questions: pic:<importKey>, atlas:<id> (patch assess-pic-ref) ---------- */
+const RESOLVE_IMG_URL0 = resolveImgUrl;
+resolveImgUrl = function (u) {
+  if (typeof u === 'string' && u.startsWith('pic:')) {
+    const key = u.slice(4);
+    for (const t of getTopics(true)) for (const s of (t.sections || [])) {
+      const m = sectionMedia(s.id).find(x => x && x.importKey === key && x.url && x.type !== 'link'); if (m) return m.url;
+    }
+    return '';
+  }
+  if (typeof u === 'string' && u.startsWith('atlas:')) {
+    const x = typeof ATLAS !== 'undefined' ? ATLAS.all().find(a => a.id === u.slice(6) && a.src) : null; return x ? x.src : '';
+  }
+  return RESOLVE_IMG_URL0(u);
+};
 /* Picture loading (2026-10-14). A picture that fails is retried before the page gives up: first without telling the other
    site which page asks (many sites and Google refuse pictures requested from another website), then — for a Google Drive
    file — through Google's other picture addresses for the same file. Only when all fail does the page show its notice. */
