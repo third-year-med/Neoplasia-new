@@ -1,7 +1,7 @@
 # CLAUDE.md — a module of the Interactive Pathology Teaching Platform
 
 This repository is one module (a single `index.html`): **Neoplasia (New)** (module key `neonew`, storage prefix `nn_`,
-build `new-1.1`). Built 2026-10-30 from the user's own syllabus "Neoplasia (Ch. 6)", pp. 42–64, **as it is — NOT condensed**
+build `new-1.2`). Built 2026-10-30 from the user's own syllabus "Neoplasia (Ch. 6)", pp. 42–64, **as it is — NOT condensed**
 (an exception to HANDBOOK §4.2, like Inflammation (New)), with the app code of `third-year-med/neoplasia`. It is separate from
 the Neoplasia module (`neoplasm`, `nm_`) — never mix their keys, storages or IDs.
 
@@ -28,5 +28,12 @@ in the platform repository: `third-year-med/Interactive-pathology-platform` → 
   pictures are NOT used in Spotter/OSPE: peir.path.uab.edu is outside the session's network policy, so they cannot be examined.
 - 🎓 Viva Examination (2026-11-15, patch `viva`): the bank `neonew-viva-bank.json` (82 questions `viva_nn_tNN_NN`, 5 marks each, ≥ 5 per topic,
   20 picture questions) is delivered to the user and imported in ✏️ Edit master draft → 🎓 Viva → ⬆ Import viva bank — never committed.
+- **Practical rebuild (2026-11-15, build new-1.2):** t15 = 14 cases in the user's folder order (s1502 papilloma, s1503 SCC, s1505 BCC,
+  s1504 melanoma, s1506–s1509, new s1513 colonic adenomas, s1514 fibroadenoma, s1515 leiomyoma/leiomyosarcoma, s1516 dermoid, s1517 omental
+  seeding, s1518 colon carcinoma), galleries s1519–s1522, then s1510–s1512; the user's hidden papilloma pictures (nm-img-076/077) are in the
+  build. Delivered (never committed): 3 picture files (220 pictures `nn-prac2-001…220`), `neonew-practical-cases.json` (14 cases `nn-pr2-NN`,
+  practical and viva questions MERGED — user's choice for this module), Spotter set 2 (110: 68 new `nn-sp2-NNN` + 42 kept; 38 hardest in
+  Practice), OSPE set 2 (30: 14 new `nn-os2-NN` + 16 kept), 🔒 bank `aqb_nnp_*` (72, `pic:` refs). Clean Practical pages (prac-clean).
+  Served at `https://third-year-med.github.io/Neoplasia-new/`. Standard: platform HANDBOOK §4.4.
 - Test changes on the real page with the platform repo's e2e test "Neoplasia (New) module (neonew)" (`NN_CONTENT_KEY` in the
   environment) and `node test/module-smoke/smoke.js` before pushing.
