@@ -22280,6 +22280,35 @@ function uxrBar() {
 })();
 
 
+/* ---------- 🧹 Clean Practical pages (patch prac-clean) ---------- */
+(function () {
+  if (typeof pracGuideCard === 'function') pracGuideCard = function () { return el('span', { hidden: true, class: 'prac-guide-off' }); };
+  if (typeof uxList === 'function') {
+    const list0 = uxList;
+    uxList = function (rows) { return list0((rows || []).filter(r => !(r && r.title === 'How to answer a practical'))); };
+  }
+  // the Learn practical topic is not shown to students (Learn list, pathway, topic quizzes); its pictures still feed the
+  // Spotter, the OSPE and the atlas, which now look the topic up among ALL topics
+  const PRAC_RE = /practical/i, gt0 = getTopics;
+  const studentView = () => (window.NEO_BOOT || {}).role === 'student';
+  const dropFinale = () => {   // the practical topic leaves the Learn pathway's last unit; the unit goes only when nothing else is in it
+    if (typeof UX_ALL_UNITS === 'undefined' || typeof UX_FINALE === 'undefined') return;   // (Neoplasia (New): t13, t14 stay)
+    const prac = gt0(true).filter(t => PRAC_RE.test(t.title || '')).map(t => t.id);
+    UX_FINALE.topics = (UX_FINALE.topics || []).filter(id => !prac.includes(id));
+    const k = UX_ALL_UNITS.indexOf(UX_FINALE); if (k >= 0 && !UX_FINALE.topics.length) UX_ALL_UNITS.splice(k, 1);
+  };
+  const inViva = () => typeof Router !== 'undefined' && Router.current === 'viva';   // the 🎓 Viva keeps every topic (its practical questions)
+  getTopics = function (includeHidden) {
+    const l = gt0.apply(this, arguments); if (!studentView() || inViva()) return l;
+    dropFinale(); return includeHidden ? l : l.filter(t => !PRAC_RE.test(t.title || ''));
+  };
+  const pracTopic = () => gt0().find(t => PRAC_RE.test(t.title || '')) || null;
+  if (typeof Spotter !== 'undefined') Spotter.topic = pracTopic;
+  if (typeof pracGuideTopic === 'function') pracGuideTopic = pracTopic;
+  if (typeof uxPracticalTopic === 'function') uxPracticalTopic = pracTopic;
+  if (typeof pmPracticalTopic === 'function') pmPracticalTopic = pracTopic;
+})();
+
 /* ==========================================================================
    20_universal_edit.js — UNIVERSAL EDITOR for text, pictures, links and videos
    (2026-09-30). One reusable system, used by every "ticket" of the app:
