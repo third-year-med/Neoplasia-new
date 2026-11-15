@@ -26,5 +26,7 @@ in the platform repository: `third-year-med/Interactive-pathology-platform` → 
   t15 sections), `neonew-practical-cases.json` (15 practicals `nn-pr-01…15`), `neonew-spotter-questions.json` (52, 2 per picture on
   26 pictures incl. atlas nm-img-089/091; answers A–E 11/11/10/10/10) and `neonew-ospe-stations.json` (18 × 4 parts). PEIR
   pictures are NOT used in Spotter/OSPE: peir.path.uab.edu is outside the session's network policy, so they cannot be examined.
+- 🎓 Viva Examination (2026-11-15, patch `viva`): the bank `neonew-viva-bank.json` (82 questions `viva_nn_tNN_NN`, 5 marks each, ≥ 5 per topic,
+  20 picture questions) is delivered to the user and imported in ✏️ Edit master draft → 🎓 Viva → ⬆ Import viva bank — never committed.
 - Test changes on the real page with the platform repo's e2e test "Neoplasia (New) module (neonew)" (`NN_CONTENT_KEY` in the
   environment) and `node test/module-smoke/smoke.js` before pushing.
