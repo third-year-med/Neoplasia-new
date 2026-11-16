@@ -22315,6 +22315,39 @@ function uxrBar() {
   if (typeof pmPracticalTopic === 'function') pmPracticalTopic = pracTopic;
 })();
 
+/* ---------- Practical front page: Present all cases + Print PDF (patch prac-hub-actions) ---------- */
+(function () {
+  if (!Views.apply || typeof PracData === 'undefined') return;
+  const css = '.pha-row{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem 1rem}.pha-acts{display:inline-flex;gap:.5rem;flex-wrap:wrap}.pha-acts .btn{font-weight:600}' +
+    '@media (max-width:640px){.pha-row{margin-bottom:.3rem}}';
+  document.head.appendChild(el('style', { id: 'pha-css' }, css));
+  const stop = f => e => { e.preventDefault(); e.stopPropagation(); f(); };
+  const a0 = Views.apply.render;
+  Views.apply.render = function () {
+    const r = a0.apply(this, arguments);
+    try {
+      const v = document.getElementById('view-apply'); if (!v) return r;
+      const link = v.querySelector('.ux-list a[href="#/practical"]'), b = link && link.querySelector('.ux-list-b > b');
+      const pubs = PracData.published(), teacher = Auth.isTeacher(), cfg = PracData.cfg() || {};
+      if (b && pubs.length && !link.querySelector('.pha-acts')) {
+        const acts = el('span', { class: 'pha-acts' });
+        if (typeof PracPresent !== 'undefined' && PracPresent.cases().length)
+          acts.appendChild(el('button', { class: 'btn btn-sm btn-primary', type: 'button', 'data-a': 'pha-present', onclick: stop(() => PracPresent.start()) }, '▶ Present all cases'));
+        const printable = pubs.filter(p => teacher || pracPerms(p).print);
+        if ((teacher || cfg.allowSetPrint) && printable.length && typeof PracHandout !== 'undefined')
+          acts.appendChild(el('button', { class: 'btn btn-sm', type: 'button', 'data-a': 'pha-print', title: 'Print the practical cases or save them as a PDF', onclick: stop(() => PracHandout.print(printable, 'set')) }, '🖨 Print PDF'));
+        if (acts.children.length) { const row = el('span', { class: 'pha-row' }); b.before(row); row.appendChild(b); row.appendChild(acts); }
+      }
+      // the "1 · Practical cases" heading goes when its box is the only section (after the other wrappers have removed rows)
+      Promise.resolve().then(() => {
+        const hs = v.querySelectorAll('h2.ux-h2');
+        if (hs.length === 1) { const nx = hs[0].nextElementSibling; if (nx && nx.classList.contains('ux-list') && nx.querySelector('a[href="#/practical"]')) hs[0].remove(); }
+      });
+    } catch (e) { }
+    return r;
+  };
+})();
+
 /* ---------- Pathology Spotter, OSPE, Image atlas and Image Bank for the Administrator only (patch prac-admin-only v2) ---------- */
 const PRAC_ADMIN = { known: false, admin: false, wait: null };
 function pracIsAdmin() {
