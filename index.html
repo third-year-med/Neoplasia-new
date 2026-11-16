@@ -8506,6 +8506,12 @@ function PE_figCaption(im) {
   const extra = [im.stain, im.magnification].filter(Boolean).join(', ');
   return (bits[0].replace(/\.$/, '') + (extra ? ' (' + extra + ')' : '') + '.' + (im.annotation ? ' ' + im.annotation : '')).trim();
 }
+/* ---------- Practical picture descriptions without the credit line (patch prac-credit-hide) ---------- */
+const PRAC_CREDIT_RE = /\s+—\s+(?:ExpertPath|WebPath|WebPathology|PathologyOutlines|PEIR|Kumar V|Aster JC|Robbins|Elsevier|Wikimedia|Course syllabus|Practical inflammation cases|Departmental practical collection)[\s\S]*$/i;
+function pracCaptionClean(c) { return String(c || '').replace(PRAC_CREDIT_RE, '').trim(); }
+const PE_FIGCAPTION0 = PE_figCaption;
+PE_figCaption = function (im) { return PE_FIGCAPTION0(Object.assign({}, im, { caption: pracCaptionClean(im && im.caption) })); };
+
 /** Asserts that a model built without answers contains none (used by QC before PDF generation and by tests). */
 function PE_modelHasAnswers(model) { return model.practicals.some(p => p.blocks.some(b => b.t === 'qa' && (b.answer || (b.a !== undefined && b.a !== '')))); }
 
