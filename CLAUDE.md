@@ -35,5 +35,8 @@ in the platform repository: `third-year-med/Interactive-pathology-platform` → 
   practical and viva questions MERGED — user's choice for this module), Spotter set 2 (110: 68 new `nn-sp2-NNN` + 42 kept; 38 hardest in
   Practice), OSPE set 2 (30: 14 new `nn-os2-NN` + 16 kept), 🔒 bank `aqb_nnp_*` (72, `pic:` refs). Clean Practical pages (prac-clean).
   Served at `https://third-year-med.github.io/Neoplasia-new/`. Standard: platform HANDBOOK §4.4.
+- **Open (2026-11-16, platform rule HANDBOOK §4.4):** every practical picture also into its Learn topic, then ONE picture per finding
+  (repeats out with a `neo-picture-remove` file — 🗑 Remove pictures in Teacher Portal → 💾 Backup). Done for Granulomatous; here it
+  waits for the user's picture files (topic + practical) or a master backup and the content key.
 - Test changes on the real page with the platform repo's e2e test "Neoplasia (New) module (neonew)" (`NN_CONTENT_KEY` in the
   environment) and `node test/module-smoke/smoke.js` before pushing.
