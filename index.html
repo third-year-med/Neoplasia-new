@@ -22315,6 +22315,20 @@ function uxrBar() {
   if (typeof pmPracticalTopic === 'function') pmPracticalTopic = pracTopic;
 })();
 
+/* ---------- 🙈 No Present / Print / Print Entire Chapter for students (patch learn-print-hide) ---------- */
+(function () {
+  const OFF = { '🎞️ Present': 1, '🖨 Print': 1 };
+  let queued = false;
+  function sweep() {
+    queued = false;
+    if ((window.NEO_BOOT || {}).role !== 'student') return;
+    document.querySelectorAll('.hero-meta .print-chapter-btn').forEach(b => b.remove());
+    document.querySelectorAll('.topic-hero .hero-meta > button').forEach(b => { if (OFF[b.textContent.trim()]) b.remove(); });
+  }
+  new MutationObserver(() => { if (!queued) { queued = true; (window.requestAnimationFrame || setTimeout)(sweep); } })
+    .observe(document.documentElement, { childList: true, subtree: true });
+})();
+
 /* ---------- 🔠 Larger text in the Practical and Viva presentations (patch present-large) ---------- */
 (function () {
   if (document.getElementById('pcpl-style')) return;
