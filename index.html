@@ -22315,6 +22315,18 @@ function uxrBar() {
   if (typeof pmPracticalTopic === 'function') pmPracticalTopic = pracTopic;
 })();
 
+/* ---------- 🙈 No section action row for students (patch learn-sec-actions-hide) ---------- */
+(function () {
+  let queued = false;
+  function sweep() {
+    queued = false;
+    if ((window.NEO_BOOT || {}).role !== 'student') return;
+    document.querySelectorAll('.sec-actions').forEach(r => r.remove());
+  }
+  new MutationObserver(() => { if (!queued) { queued = true; (window.requestAnimationFrame || setTimeout)(sweep); } })
+    .observe(document.documentElement, { childList: true, subtree: true });
+})();
+
 /* ---------- 🙈 No Present / Print / Print Entire Chapter for students (patch learn-print-hide) ---------- */
 (function () {
   const OFF = { '🎞️ Present': 1, '🖨 Print': 1 };
