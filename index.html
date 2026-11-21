@@ -16075,6 +16075,39 @@ function tqCloseHours() { const c = Store.get('tq_count_v1', null) || {}; const 
   };
   setTimeout(go, 4000);
 })();
+/* ---------- ⏱ 5-hour quiz closing + 🔁 Repeat for the class (patch tq-autoclose-5h; Portal.gs 2.50) ---------- */
+(function () {
+  if (typeof tqCloseHours !== 'function' || typeof AssessUI === 'undefined') return;
+  const MIN = 5;
+  try { const c = Store.get('tq_count_v1', null); if (c && c.close !== undefined && c.close !== null && Number(c.close) > 0 && Number(c.close) < MIN && !c.close5) { c.close = MIN; c.close5 = 1; Store.set('tq_count_v1', c); } } catch (e) { }
+  const base = tqCloseHours;
+  tqCloseHours = function () { const c = Store.get('tq_count_v1', null) || {}; if (c.close === undefined || c.close === null || isNaN(Number(c.close))) return MIN; const h = base(); return h > 0 ? Math.max(h, MIN) : 0; };
+  const ren0 = AssessUI.render;
+  AssessUI.render = async function (box) {
+    const r = await ren0.apply(this, arguments);
+    try {
+      if (!Backend.isConfigured()) return r;
+      const p = await Backend.authedPost({ action: 'aePwList' }, { timeout: 30000 }); const ac = (p && p.ok && p.autoClose) || {};
+      (box || this.box || document).querySelectorAll('tr [data-a=ac-reopen]').forEach(btn => {
+        const tr = btn.closest('tr'); if (!tr || tr.querySelector('[data-a=ac-repeat]')) return;
+        const cb = tr.querySelector('input[type=checkbox][aria-label^="Select "]'); if (!cb) return;
+        const title = cb.getAttribute('aria-label').slice(7), a = (State.assessments || []).find(x => x.title === title && ac[x.id]); if (!a) return;
+        const h = Math.max(Number(ac[a.id].h) || MIN, MIN);
+        tr.querySelectorAll('.small.muted').forEach(d => { if (/^⏱ closes \d+(\.\d+)? h after the first student starts$/.test(d.textContent)) d.textContent = '⏱ closes ' + h + ' h after the first student starts' + (ac[a.id].since ? ' · repeated ' + new Date(Number(ac[a.id].since)).toLocaleString() : ''); });
+        btn.after(el('button', { class: 'btn btn-xs', 'data-a': 'ac-repeat', title: 'Open it again for the whole class', onclick: () => this.repeatForClass(a, h) }, '🔁 Repeat for the class'));
+      });
+    } catch (e) { console.warn('repeat for the class', e); }
+    return r;
+  };
+  AssessUI.repeatForClass = async function (a, h) {
+    if (!(await confirmDialog('Repeat “' + a.title + '” for the whole class? It opens again for every student — also those who already took it — and closes ' + h + ' hours after the first student starts it again. Earlier attempts and results are kept.', { okLabel: '🔁 Repeat' }))) return;
+    const r = await Backend.authedPost({ action: 'aeAutoClose', assessmentIds: [a.id], hours: h, restart: true }, { timeout: 30000 });
+    if (r && r.ok && r.autoClose && r.autoClose[a.id] && r.autoClose[a.id].since) { toast('“' + a.title + '” is open again for the class (' + h + ' h after the first new start).', 'ok', 7000); this.render(this.box); }
+    else if (r && r.ok) toast('The class server needs updating (Portal.gs 2.50) to repeat a quiz.', 'warn', 8000);
+    else toast((r && r.error) || 'Could not repeat it.', 'bad', 6000);
+  };
+})();
+
 function openInQuestionBank(qid) {
   const T = Views.teacher; T.bankState = T.bankState || bankFilterDefaults(); Object.assign(T.bankState, bankFilterDefaults({ q: qid, sel: T.bankState.sel }));
   if (AssessUI.builder && AssessUI.dirtyBuilder) toast('Your unsaved assessment changes are kept — reopen it from the library to continue.', 'warn', 5000);
